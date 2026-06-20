@@ -4,10 +4,27 @@
  */
 
 import http from 'http'
+import fs from 'fs'
+import path from 'path'
 import {
   createEnsembleTeam, getEnsembleTeam, listEnsembleTeams,
   getTeamFeed, sendTeamMessage, disbandTeam,
 } from './services/ensemble-service'
+
+const MONITOR_HTML_PATH = path.join(process.cwd(), 'web', 'monitor.html')
+
+// Read the monitor page once and memoize it, so /monitor doesn't do a synchronous
+// disk read on every request (avoids an event-loop stall vector). [review F5]
+let monitorHtmlCache: string | null = null
+function getMonitorHtml(): string | null {
+  if (monitorHtmlCache !== null) return monitorHtmlCache
+  try {
+    monitorHtmlCache = fs.readFileSync(MONITOR_HTML_PATH, 'utf8')
+  } catch {
+    return null
+  }
+  return monitorHtmlCache
+}
 
 const PORT = parseInt(process.env.ENSEMBLE_PORT || process.env.ORCHESTRA_PORT || '23000', 10)
 const HOST = process.env.ENSEMBLE_HOST || '127.0.0.1'
@@ -125,6 +142,19 @@ const server = http.createServer(async (req, res) => {
     // Health check — always exempt from rate limiting
     if (path === '/api/v1/health') {
       return json(res, { status: 'healthy', version: '1.0.0' }, 200, origin)
+    }
+
+    // Live monitor UI — served same-origin so the page can call the API without CORS
+    if ((path === '/monitor' || path === '/') && method === 'GET') {
+      const html = getMonitorHtml()
+      if (html === null) {
+        res.writeHead(404, { 'Content-Type': 'text/plain' })
+        res.end('monitor.html not found')
+      } else {
+        res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
+        res.end(html)
+      }
+      return
     }
 
     // Internal ensemble API routes are exempt from rate limiting

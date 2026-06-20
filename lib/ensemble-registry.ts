@@ -169,7 +169,9 @@ export function getMessages(teamId: string, since?: string): EnsembleMessage[] {
   })
 
   if (since) {
-    messages = messages.filter(m => m.timestamp && m.timestamp > since)
+    // Inclusive (>=) so messages sharing the cursor timestamp are not lost.
+    // Callers must dedupe by id; the live monitor already does (seen Set).
+    messages = messages.filter(m => m.timestamp && m.timestamp >= since)
   }
   return messages
 }
