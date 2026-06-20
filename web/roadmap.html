@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ensemble · roadmap</title>
+<style>
+  :root {
+    --bg: #0b0e14; --panel: #131822; --panel-2: #1a2030; --border: #232b3d;
+    --text: #e6e9ef; --muted: #8a93a6;
+    --codex: #3b82f6; --claude: #a855f7;
+    --green: #22c55e; --amber: #f59e0b; --gray: #5b657a;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg); color: var(--text); min-height: 100vh;
+    font-family: -apple-system, "Segoe UI", "Hiragino Kaku Gothic ProN", "Meiryo", system-ui, sans-serif;
+    font-size: 14px;
+  }
+  header {
+    display: flex; align-items: center; gap: 14px; padding: 13px 22px;
+    background: linear-gradient(180deg, #141a26, #0e131c); border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; z-index: 5;
+  }
+  .brand { font-weight: 700; font-size: 15px; letter-spacing: .5px; }
+  .brand .dot { color: var(--codex); }
+  .sub { color: var(--muted); font-size: 12px; }
+  .nav { margin-left: auto; display: flex; gap: 8px; }
+  .nav a {
+    font-size: 12px; color: var(--muted); text-decoration: none;
+    padding: 5px 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel-2);
+  }
+  .nav a:hover { color: var(--text); }
+  .counts { color: var(--muted); font-size: 12px; }
+  .counts b { color: var(--text); }
+
+  main { max-width: 980px; margin: 0 auto; padding: 22px 18px 60px; display: flex; flex-direction: column; gap: 14px; }
+  .legend { display: flex; gap: 16px; color: var(--muted); font-size: 11.5px; margin-bottom: 2px; }
+  .legend span { display: inline-flex; align-items: center; gap: 5px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+  .d-run { background: var(--amber); } .d-active { background: var(--green); } .d-done { background: var(--gray); }
+
+  .card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px;
+  }
+  .card.live { border-color: #1c3a2a; box-shadow: 0 0 0 1px #1c3a2a inset; }
+  .card-top { display: flex; align-items: flex-start; gap: 12px; }
+  .badge {
+    flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 11px; border-radius: 999px; font-size: 11.5px; font-weight: 700;
+    border: 1px solid var(--border); background: var(--panel-2);
+  }
+  .badge .ic { width: 7px; height: 7px; border-radius: 50%; }
+  .badge.live { color: var(--green); border-color: #1c3a2a; } .badge.live .ic { background: var(--green); animation: pulse 1.4s infinite; }
+  .badge.forming { color: var(--amber); } .badge.forming .ic { background: var(--amber); }
+  .badge.done { color: var(--muted); } .badge.done .ic { background: var(--gray); }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+  .title { flex: 1 1 auto; font-weight: 600; line-height: 1.5; word-break: break-word; }
+  .title .name { color: var(--muted); font-size: 11px; font-weight: 500; margin-bottom: 3px; font-variant-numeric: tabular-nums; }
+  .agents { flex: 0 0 auto; display: flex; gap: 6px; }
+  .ag { font-size: 11px; padding: 3px 8px; border-radius: 7px; border: 1px solid var(--border); }
+  .ag.codex { color: #9cc4ff; } .ag.claude { color: #d6b3ff; }
+
+  /* stepper */
+  .steps { display: flex; align-items: center; margin-top: 15px; }
+  .step { flex: 1 1 0; display: flex; flex-direction: column; align-items: center; position: relative; }
+  .step .node {
+    width: 26px; height: 26px; border-radius: 50%; border: 2px solid var(--border);
+    background: var(--panel-2); display: flex; align-items: center; justify-content: center;
+    font-size: 12px; color: var(--muted); z-index: 2;
+  }
+  .step .lbl { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .step .bar { position: absolute; top: 13px; left: 50%; width: 100%; height: 2px; background: var(--border); z-index: 1; }
+  .step:last-child .bar { display: none; }
+  .step.done .node { border-color: var(--green); color: var(--green); background: #10231a; }
+  .step.done .lbl { color: var(--text); }
+  .step.done .bar { background: var(--green); }
+  .step.current .node { border-color: var(--amber); color: var(--amber); background: #2a2110; animation: pulse 1.4s infinite; }
+  .step.current .lbl { color: var(--amber); font-weight: 600; }
+
+  .meta { display: flex; gap: 18px; margin-top: 13px; color: var(--muted); font-size: 11.5px; }
+  .meta b { color: var(--text); font-variant-numeric: tabular-nums; }
+  .meta a { color: #9cc4ff; text-decoration: none; }
+  .empty { text-align: center; color: var(--muted); padding: 60px 0; }
+  .spin { font-size: 24px; display: inline-block; animation: spin 1.4s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+  <header>
+    <span class="brand"><span class="dot">◈</span> ensemble</span>
+    <span class="sub">タスク・ロードマップ</span>
+    <span class="counts" id="counts"></span>
+    <span class="nav"><a href="/monitor">💬 ライブモニター</a></span>
+  </header>
+  <main id="main">
+    <div class="empty"><div class="spin">◈</div><div style="margin-top:10px">チームを読み込み中…</div></div>
+  </main>
+
+<script>
+const API = location.origin;
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const isLive = s => ['active','forming','working'].includes(s);
+const STEPS = ['起動', '協調', '収束', '完了'];
+
+async function jget(p) { const r = await fetch(API + p, { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); return r.json(); }
+
+function fmtElapsed(ms) { if (ms < 0) ms = 0; const s = Math.floor(ms/1000), m = Math.floor(s/60); return m > 0 ? `${m}分${String(s%60).padStart(2,'0')}秒` : `${s}秒`; }
+function fmtClock(ts) { if (!ts) return '–'; const d = new Date(ts); const p = n => String(n).padStart(2,'0'); return `${p(d.getHours())}:${p(d.getMinutes())}`; }
+
+// Map a team to a stepper position. With status + message activity:
+// 0 起動(forming/spawn) · 1 協調(active w/ msgs) · 2 収束(sentinel seen) · 3 完了(disbanded)
+function phaseIndex(t, feed) {
+  if (!isLive(t.status)) return 3;
+  const msgs = feed.filter(m => m.from !== 'ensemble' && m.from !== 'system');
+  const done = feed.some(m => String(m.content || '').includes('COLLAB_DONE'));
+  if (done) return 2;
+  if (msgs.length > 0) return 1;
+  return 0;
+}
+
+function stepper(idx, live) {
+  return `<div class="steps">` + STEPS.map((s, i) => {
+    let cls = '';
+    if (i < idx) cls = 'done';
+    else if (i === idx) cls = (live ? 'current' : 'done');
+    const mark = (cls === 'done') ? '✓' : (i + 1);
+    return `<div class="step ${cls}"><div class="bar"></div><div class="node">${mark}</div><div class="lbl">${s}</div></div>`;
+  }).join('') + `</div>`;
+}
+
+function agentTag(a) {
+  const cls = /codex/i.test(a.program || '') ? 'codex' : (/claude/i.test(a.program || '') ? 'claude' : '');
+  return `<span class="ag ${cls}">${esc(a.name)}</span>`;
+}
+
+function card(t, feed) {
+  const live = isLive(t.status);
+  const real = (t.agents || []).filter(a => a.program !== 'ensemble');
+  const idx = phaseIndex(t, feed);
+  const badgeCls = live ? (t.status === 'forming' ? 'forming' : 'live') : 'done';
+  const badgeTxt = live ? (t.status === 'forming' ? '起動中' : '稼働中') : '完了';
+  const ts = feed.map(m => m.timestamp).filter(Boolean).sort();
+  const first = ts[0], last = ts[ts.length - 1];
+  const end = live ? Date.now() : (last ? new Date(last).getTime() : Date.now());
+  const elapsed = first ? fmtElapsed(end - new Date(first).getTime()) : '–';
+  const msgN = feed.filter(m => m.from !== 'ensemble' && m.from !== 'system').length;
+  return `<div class="card ${live ? 'live' : ''}">
+    <div class="card-top">
+      <span class="badge ${badgeCls}"><span class="ic"></span>${badgeTxt}</span>
+      <div class="title"><div class="name">${esc(t.id.slice(0,8))}</div>${esc(t.description || '(タスク説明なし)')}</div>
+      <div class="agents">${real.map(agentTag).join('')}</div>
+    </div>
+    ${stepper(idx, live)}
+    <div class="meta">
+      <span>💬 発言 <b>${msgN}</b></span>
+      <span>⏱ <b>${elapsed}</b></span>
+      <span>開始 <b>${fmtClock(first)}</b></span>
+      <span><a href="/monitor?team=${encodeURIComponent(t.id)}" target="_blank">モニターで開く →</a></span>
+    </div>
+  </div>`;
+}
+
+async function refresh() {
+  try {
+    const data = await jget('/api/ensemble/teams');
+    const teams = (data.teams || []).slice().reverse(); // newest first
+    if (!teams.length) { $('#main').innerHTML = '<div class="empty">まだチームがありません。collab を起動すると、ここに進捗が並びます。</div>'; $('#counts').innerHTML = ''; return; }
+    // fetch feed per team (capped) for message count + phase
+    const feeds = await Promise.all(teams.slice(0, 30).map(t =>
+      jget('/api/ensemble/teams/' + t.id + '/feed').then(f => f.messages || []).catch(() => [])));
+    const liveN = teams.filter(t => isLive(t.status)).length;
+    $('#counts').innerHTML = `<b>${teams.length}</b> タスク / 稼働中 <b>${liveN}</b>`;
+    $('#main').innerHTML =
+      `<div class="legend"><span><span class="dot d-active"></span>稼働中</span><span><span class="dot d-run"></span>起動中/現フェーズ</span><span><span class="dot d-done"></span>完了</span></div>` +
+      teams.map((t, i) => card(t, feeds[i] || [])).join('');
+  } catch (e) {
+    $('#main').innerHTML = '<div class="empty">サーバーに接続できません（再試行中）…</div>';
+  }
+}
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

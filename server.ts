@@ -11,19 +11,21 @@ import {
   getTeamFeed, sendTeamMessage, disbandTeam,
 } from './services/ensemble-service'
 
-const MONITOR_HTML_PATH = path.join(process.cwd(), 'web', 'monitor.html')
+const WEB_DIR = path.join(process.cwd(), 'web')
 
-// Read the monitor page once and memoize it, so /monitor doesn't do a synchronous
+// Read a web page once and memoize it, so the static routes don't do a synchronous
 // disk read on every request (avoids an event-loop stall vector). [review F5]
-let monitorHtmlCache: string | null = null
-function getMonitorHtml(): string | null {
-  if (monitorHtmlCache !== null) return monitorHtmlCache
+const staticHtmlCache = new Map<string, string>()
+function getStaticHtml(file: string): string | null {
+  const cached = staticHtmlCache.get(file)
+  if (cached !== undefined) return cached
   try {
-    monitorHtmlCache = fs.readFileSync(MONITOR_HTML_PATH, 'utf8')
+    const html = fs.readFileSync(path.join(WEB_DIR, file), 'utf8')
+    staticHtmlCache.set(file, html)
+    return html
   } catch {
     return null
   }
-  return monitorHtmlCache
 }
 
 const PORT = parseInt(process.env.ENSEMBLE_PORT || process.env.ORCHESTRA_PORT || '23000', 10)
@@ -144,12 +146,17 @@ const server = http.createServer(async (req, res) => {
       return json(res, { status: 'healthy', version: '1.0.0' }, 200, origin)
     }
 
-    // Live monitor UI — served same-origin so the page can call the API without CORS
-    if ((path === '/monitor' || path === '/') && method === 'GET') {
-      const html = getMonitorHtml()
+    // Static UI pages — served same-origin so they can call the API without CORS.
+    const staticPages: Record<string, string> = {
+      '/': 'monitor.html',
+      '/monitor': 'monitor.html',
+      '/roadmap': 'roadmap.html',
+    }
+    if (method === 'GET' && staticPages[path]) {
+      const html = getStaticHtml(staticPages[path])
       if (html === null) {
         res.writeHead(404, { 'Content-Type': 'text/plain' })
-        res.end('monitor.html not found')
+        res.end(staticPages[path] + ' not found')
       } else {
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
         res.end(html)

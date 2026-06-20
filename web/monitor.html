@@ -75,6 +75,7 @@
   }
   .toggle:hover { color: var(--text); }
   .toggle.off { opacity: .5; }
+  .navlink { text-decoration: none; }
 
   .task-bar {
     flex: 0 0 auto; padding: 8px 18px; font-size: 12px; color: var(--muted);
@@ -82,6 +83,12 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .task-bar b { color: var(--text); font-weight: 600; }
+  .phase-bar {
+    flex: 0 0 auto; padding: 7px 18px; font-size: 12.5px; font-weight: 600;
+    background: var(--panel-2); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; gap: 9px; color: var(--text);
+  }
+  .phase-bar .ph-ic { color: var(--codex); }
 
   /* ── Columns ── */
   .stage {
@@ -138,9 +145,11 @@
       <span>💬 <b id="count">0</b></span>
     </span>
     <span class="agent-pills" id="pills"></span>
+    <a class="toggle navlink" href="/roadmap" target="_blank" rel="noopener">🗺 ロードマップ</a>
     <span class="toggle" id="sysToggle">sys表示</span>
   </header>
   <div class="task-bar" id="task">タスク待機中…</div>
+  <div class="phase-bar" id="phase"><span class="ph-ic">◷</span><span id="phaseTxt">接続中…</span></div>
   <div class="stage" id="stage">
     <div class="col left">
       <div class="col-head"><span class="ic"></span><span id="leftName">agent-1</span><span class="role" id="leftRole"></span></div>
@@ -235,12 +244,14 @@ function appendMessage(m) {
   if (m.from === 'ensemble' || m.from === 'system') {
     const f = $('sysFeed');
     const near = isNearBottom(f);
-    f.insertAdjacentHTML('beforeend', `<div class="sysmsg">${esc(m.content)}<span class="time">${hhmmss(ts)}</span></div>`);
+    f.insertAdjacentHTML('beforeend', `<div class="sysmsg">${esc(jpSys(m.content))}<span class="time">${hhmmss(ts)}</span></div>`);
     if (near) f.scrollTop = f.scrollHeight;
     return;
   }
   msgCount++;
   $('count').textContent = msgCount;
+  lastAgentLabel = `${m.from} ${hhmmss(ts)}`;
+  if (String(m.content || '').includes('COLLAB_DONE')) sawDone = true;
   // Explicit lane match; unknown / 3rd+ agents go to the center lane so they are
   // shown verbatim instead of being misattributed to the right agent. [F3]
   let f;
@@ -257,11 +268,39 @@ function isNearBottom(el) { return el.scrollHeight - el.scrollTop - el.clientHei
 
 const isLive = s => ['active','forming','working'].includes(s);
 
+// Translate ensemble's English system messages into Japanese for the sys lane. [jp-progress]
+function jpSys(c) {
+  c = String(c || '');
+  let m;
+  if ((m = c.match(/^(.+?)\s*\(([^)]+)\)\s*has joined\s*#?(.*)$/i)))
+    return `${m[1]} が参加（${m[2].replace(/@/, '＠')}）`;
+  if ((m = c.match(/^.*?([\w-]+) did not signal ready in time.*$/i)))
+    return `⚠ ${m[1]} の準備完了が間に合わず、プロンプトを強制注入（ベストエフォート）`;
+  if ((m = c.match(/(\d+)\s*agents? received their task.*collaboration started/i)))
+    return `🚀 ${m[1]}体のエージェントがタスクを受領 — 協調開始`;
+  if (/has left|has disbanded|disbanded the team|team disbanded/i.test(c)) return '🏁 チーム解散';
+  if (/summary (written|ready)|writing summary/i.test(c)) return '📝 サマリ生成中…';
+  if (/nudge|stalled|appears idle|no activity/i.test(c)) return `⏰ 停滞検知 — 進行を促しています`;
+  if (/collaboration complete|all agents.*done|signaled completion/i.test(c)) return '✅ 全エージェント完了';
+  return c; // 未知のシステム文はそのまま
+}
+
+let lastAgentLabel = null;
+let sawDone = false;
+
+function phaseText(status) {
+  if (!isLive(status)) return '✅ 完了 — チームは解散しました';
+  if (msgCount === 0) return '🟡 エージェント起動・タスク配布中…';
+  if (sawDone) return '🟣 収束中 — サインオフ待ち…';
+  return '🟢 協調作業中' + (lastAgentLabel ? `（最新: ${lastAgentLabel}）` : '…');
+}
+
 // Reset all per-team state and re-render headers when switching teams, so the
 // monitor can follow a freshly-started live run instead of staying pinned. [live-follow]
 function switchTeam(t) {
   team = t;
   seen.clear(); lastTs = null; firstTs = null; msgCount = 0;
+  lastAgentLabel = null; sawDone = false;
   $('leftFeed').innerHTML = ''; $('rightFeed').innerHTML = ''; $('sysFeed').innerHTML = '';
   $('count').textContent = '0';
   $('elapsed').textContent = '–';
@@ -293,6 +332,8 @@ async function tick() {
     const since = lastTs ? ('?since=' + encodeURIComponent(lastTs)) : '';
     const feed = await jget('/api/ensemble/teams/' + team.id + '/feed' + since);
     (feed.messages || []).forEach(appendMessage);
+
+    $('phaseTxt').textContent = phaseText(team.status);
 
     if (firstTs) {
       const end = isLive(team.status) ? Date.now() : (lastTs ? new Date(lastTs).getTime() : Date.now());
