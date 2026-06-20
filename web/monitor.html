@@ -98,14 +98,15 @@
   }
   .col { background: var(--bg); display: flex; flex-direction: column; overflow: hidden; }
   .col-head {
-    flex: 0 0 auto; padding: 9px 14px; font-size: 12px; font-weight: 700;
-    display: flex; align-items: center; gap: 8px; border-bottom: 1px solid var(--border);
+    flex: 0 0 auto; padding: 9px 14px; font-size: 13px; font-weight: 700;
+    display: flex; align-items: flex-start; gap: 8px; border-bottom: 1px solid var(--border);
     background: var(--panel);
   }
-  .col-head .ic { width: 9px; height: 9px; border-radius: 50%; }
+  .col-head .ic { width: 9px; height: 9px; border-radius: 50%; margin-top: 5px; flex: 0 0 auto; }
+  .col-head .head-text { display: flex; flex-direction: column; gap: 2px; line-height: 1.35; min-width: 0; }
   .col.left .col-head { color: #9cc4ff; } .col.left .col-head .ic { background: var(--codex); }
   .col.right .col-head { color: #d6b3ff; } .col.right .col-head .ic { background: var(--claude); }
-  .col.sys .col-head { color: var(--muted); justify-content: center; } .col.sys .col-head .ic { background: var(--sys); }
+  .col.sys .col-head { color: var(--muted); justify-content: center; align-items: center; } .col.sys .col-head .ic { background: var(--sys); margin-top: 0; }
   .col-head .role { font-weight: 500; color: var(--muted); font-size: 11px; }
   .feed { flex: 1 1 auto; overflow-y: auto; padding: 14px 12px; display: flex; flex-direction: column; gap: 10px; }
   .feed::-webkit-scrollbar { width: 8px; } .feed::-webkit-scrollbar-thumb { background: #2a3346; border-radius: 4px; }
@@ -152,7 +153,7 @@
   <div class="phase-bar" id="phase"><span class="ph-ic">◷</span><span id="phaseTxt">接続中…</span></div>
   <div class="stage" id="stage">
     <div class="col left">
-      <div class="col-head"><span class="ic"></span><span id="leftName">agent-1</span><span class="role" id="leftRole"></span></div>
+      <div class="col-head"><span class="ic"></span><span class="head-text"><span id="leftName">agent-1</span><span class="role" id="leftRole"></span></span></div>
       <div class="feed" id="leftFeed"></div>
     </div>
     <div class="col sys">
@@ -160,7 +161,7 @@
       <div class="feed" id="sysFeed"></div>
     </div>
     <div class="col right">
-      <div class="col-head"><span class="ic"></span><span id="rightName">agent-2</span><span class="role" id="rightRole"></span></div>
+      <div class="col-head"><span class="ic"></span><span class="head-text"><span id="rightName">agent-2</span><span class="role" id="rightRole"></span></span></div>
       <div class="feed" id="rightFeed"></div>
     </div>
   </div>
@@ -198,6 +199,22 @@ async function jget(path) {
   return r.json();
 }
 
+// Plain-language labels so a non-engineer can see who each agent is and what it does.
+function engineJa(program) {
+  if (/codex/i.test(program)) return 'Codex（OpenAIのAI）';
+  if (/claude/i.test(program)) return 'Claude（AnthropicのAI）';
+  return program || 'AI';
+}
+function roleJa(role) {
+  if (/lead/i.test(role)) return 'リード｜進行役・段取りを決める';
+  if (/worker/i.test(role)) return 'ワーカー｜調べて報告する';
+  return role || '';
+}
+function whoLine(a) {
+  const r = roleJa(a.role);
+  return engineJa(a.program) + (r ? ' ・ ' + r : '');
+}
+
 function classifyAgents(t) {
   const real = (t.agents || []).filter(a => a.program !== 'ensemble');
   realCount = real.length;
@@ -205,8 +222,8 @@ function classifyAgents(t) {
   rightAgent = real[1] || { name: 'agent-2', role: '', program: '' };
   $('leftName').textContent = leftAgent.name;
   $('rightName').textContent = rightAgent.name;
-  $('leftRole').textContent = leftAgent.role ? '· ' + leftAgent.role : '';
-  $('rightRole').textContent = rightAgent.role ? '· ' + rightAgent.role : '';
+  $('leftRole').textContent = realCount > 0 ? whoLine(leftAgent) : '';
+  $('rightRole').textContent = realCount > 1 ? whoLine(rightAgent) : '';
   renderPills(t);
 }
 
