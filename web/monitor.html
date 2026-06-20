@@ -213,9 +213,15 @@ function classifyAgents(t) {
 function renderPills(t) {
   if (realCount === 0) { $('pills').innerHTML = '<span class="apill" style="opacity:.6">エージェント待機中…</span>'; return; }
   const map = { active: 'var(--green)', idle: 'var(--amber)', done: 'var(--muted)' };
+  // The server leaves agent.status as 'active' even after the team disbands, so a
+  // finished task showed green "active" pills. Derive completion from team status:
+  // once the team is no longer live, every agent is shown as done. [completion-reflect]
+  const teamDone = !isLive(t.status);
   const pill = (a, cls) => {
-    const color = map[a.status] || 'var(--muted)';
-    return `<span class="apill ${cls}"><span class="ic" style="background:${color}"></span>${esc(a.name)}</span>`;
+    const eff = teamDone ? 'done' : a.status;
+    const color = map[eff] || 'var(--muted)';
+    const label = teamDone ? '完了' : '';
+    return `<span class="apill ${cls}"><span class="ic" style="background:${color}"></span>${esc(a.name)}${label ? ' <span style="opacity:.6;font-weight:400">' + label + '</span>' : ''}</span>`;
   };
   $('pills').innerHTML = pill(leftAgent, 'codex') + pill(rightAgent, 'claude');
 }
