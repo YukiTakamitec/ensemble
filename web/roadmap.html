@@ -81,8 +81,18 @@
   .meta { display: flex; gap: 18px; margin-top: 13px; color: var(--muted); font-size: 11.5px; }
   .meta b { color: var(--text); font-variant-numeric: tabular-nums; }
   .meta a { color: #9cc4ff; text-decoration: none; }
-  .empty { text-align: center; color: var(--muted); padding: 60px 0; }
+  .empty { text-align: center; color: var(--muted); padding: 60px 18px; line-height: 1.9; }
   .spin { font-size: 24px; display: inline-block; animation: spin 1.4s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 720px) {
+    header { flex-wrap: wrap; gap: 8px; }
+    .nav { margin-left: 0; order: 10; }
+    main { padding: 16px 12px 50px; }
+    .card-top { flex-wrap: wrap; }
+    .agents { width: 100%; }
+    .steps .lbl { font-size: 10px; }
+    .meta { flex-wrap: wrap; gap: 10px 16px; }
+  }
 </style>
 </head>
 <body>
@@ -90,7 +100,7 @@
     <span class="brand"><span class="dot">◈</span> ensemble</span>
     <span class="sub">タスク・ロードマップ</span>
     <span class="counts" id="counts"></span>
-    <span class="nav"><a href="/monitor">💬 ライブモニター</a></span>
+    <span class="nav"><a href="#" id="pauseBtn">⏸ 一時停止</a><a href="/monitor">💬 ライブモニター</a></span>
   </header>
   <main id="main">
     <div class="empty"><div class="spin">◈</div><div style="margin-top:10px">チームを読み込み中…</div></div>
@@ -101,7 +111,7 @@ const API = location.origin;
 const $ = (s, r=document) => r.querySelector(s);
 const esc = s => String(s == null ? '' : s).replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
 const isLive = s => ['active','forming','working'].includes(s);
-const STEPS = ['起動', '協調', '収束', '完了'];
+const STEPS = ['準備', '作業中', 'まとめ', '完了'];
 
 async function jget(p) { const r = await fetch(API + p, { cache: 'no-store' }); if (!r.ok) throw new Error(r.status); return r.json(); }
 
@@ -179,8 +189,17 @@ async function refresh() {
   }
 }
 
+let paused = false;
+$('#pauseBtn').onclick = (e) => {
+  e.preventDefault();
+  paused = !paused;
+  $('#pauseBtn').textContent = paused ? '▶ 再開' : '⏸ 一時停止';
+  $('#pauseBtn').style.color = paused ? 'var(--amber)' : '';
+  if (!paused) refresh();
+};
+
 refresh();
-setInterval(refresh, 5000);
+setInterval(() => { if (!paused) refresh(); }, 5000);
 </script>
 </body>
 </html>

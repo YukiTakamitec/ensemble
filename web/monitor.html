@@ -75,7 +75,12 @@
   }
   .toggle:hover { color: var(--text); }
   .toggle.off { opacity: .5; }
+  .toggle.paused { color: var(--amber); border-color: #4a3a14; background: #2a2110; }
   .navlink { text-decoration: none; }
+  .err-banner {
+    flex: 0 0 auto; padding: 9px 18px; font-size: 13px; font-weight: 600;
+    background: #3a1518; color: #ffb4b4; border-bottom: 1px solid #5a2024; text-align: center;
+  }
 
   .task-bar {
     flex: 0 0 auto; padding: 8px 18px; font-size: 12px; color: var(--muted);
@@ -135,6 +140,17 @@
   footer { flex: 0 0 auto; padding: 6px 18px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border); background: var(--panel); display: flex; gap: 16px; align-items: center; }
   .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); }
   .live-dot.on { background: var(--green); animation: pulse 1.4s infinite; }
+
+  /* スマホ・狭い画面: 3カラムを縦積みにし、各カラムを見やすい高さに */
+  @media (max-width: 720px) {
+    body { overflow: auto; height: auto; min-height: 100vh; }
+    header { flex-wrap: wrap; gap: 10px; }
+    .agent-pills { margin-left: 0; order: 10; width: 100%; }
+    .stage, .stage.hide-sys { display: flex; flex-direction: column; height: auto; }
+    .stage.hide-sys .col.sys { display: none; }
+    .col { min-height: 240px; }
+    .feed { max-height: 320px; }
+  }
 </style>
 </head>
 <body>
@@ -147,8 +163,10 @@
     </span>
     <span class="agent-pills" id="pills"></span>
     <a class="toggle navlink" href="/roadmap" target="_blank" rel="noopener">🗺 ロードマップ</a>
+    <span class="toggle" id="pauseBtn">⏸ 一時停止</span>
     <span class="toggle" id="sysToggle">sys表示</span>
   </header>
+  <div class="err-banner" id="errBanner" hidden>⚠ サーバーに接続できません。自動で再試行しています…</div>
   <div class="task-bar" id="task">タスク待機中…</div>
   <div class="phase-bar" id="phase"><span class="ph-ic">◷</span><span id="phaseTxt">接続中…</span></div>
   <div class="stage" id="stage">
@@ -312,10 +330,10 @@ let lastAgentLabel = null;
 let sawDone = false;
 
 function phaseText(status) {
-  if (!isLive(status)) return '✅ 完了 — チームは解散しました';
-  if (msgCount === 0) return '🟡 エージェント起動・タスク配布中…';
-  if (sawDone) return '🟣 収束中 — サインオフ待ち…';
-  return '🟢 協調作業中' + (lastAgentLabel ? `（最新: ${lastAgentLabel}）` : '…');
+  if (!isLive(status)) return '✅ 完了 — 作業は終わりました';
+  if (msgCount === 0) return '🟡 準備中 — AIを起動してタスクを渡しています…';
+  if (sawDone) return '🟣 まとめ中 — もうすぐ完了します…';
+  return '🟢 作業中 — 2体のAIが協力しています' + (lastAgentLabel ? `（最新の発言: ${lastAgentLabel}）` : '…');
 }
 
 // Reset all per-team state and re-render headers when switching teams, so the
@@ -341,12 +359,31 @@ function chooseTeam(teams) {
   return teams.find(t => isLive(t.status)) || teams[teams.length - 1] || null;
 }
 
+let paused = false;
+
+function showError(on) { $('errBanner').hidden = !on; }
+
+function showEmpty(msg) {
+  if (!$('stage').querySelector('.empty')) {
+    $('stage').insertAdjacentHTML('afterbegin',
+      `<div class="empty" id="emptyBox" style="grid-column:1/-1"><div class="spin">◈</div><div id="emptyMsg"></div></div>`);
+  }
+  const el = document.getElementById('emptyMsg');
+  if (el) el.innerHTML = msg;
+}
+
 async function tick() {
+  if (paused) return;
   try {
     const data = await jget('/api/ensemble/teams');
+    showError(false);
     const teams = data.teams || [];
     const target = chooseTeam(teams);
-    if (!target) { $('liveTxt').textContent = 'チーム待機中…'; return; }
+    if (!target) {
+      showEmpty('まだ作業中のチームがありません。<br>ターミナルで collab を起動すると、ここに2体のAIの会話が流れます。');
+      $('liveTxt').textContent = 'チーム待機中…';
+      return;
+    }
 
     if (!team || team.id !== target.id) switchTeam(target);
     else { team = target; classifyAgents(target); }   // refresh status/agents in place
@@ -363,7 +400,8 @@ async function tick() {
       $('elapsed').textContent = fmtElapsed(end - new Date(firstTs).getTime());
     }
   } catch (e) {
-    $('liveTxt').textContent = 'サーバー未応答（再試行中）…';
+    showError(true);
+    $('liveTxt').textContent = 'サーバーに接続できません（再試行中）…';
   }
 }
 
@@ -373,9 +411,16 @@ $('sysToggle').onclick = () => {
   $('sysToggle').classList.toggle('off', !showSys);
 };
 
-$('stage').insertAdjacentHTML('afterbegin',
-  '<div class="empty" style="grid-column:1/-1"><div class="spin">◈</div><div>チームを探しています…</div></div>');
+$('pauseBtn').onclick = () => {
+  paused = !paused;
+  const b = $('pauseBtn');
+  b.textContent = paused ? '▶ 再開' : '⏸ 一時停止';
+  b.classList.toggle('paused', paused);
+  $('liveTxt').textContent = paused ? '一時停止中（更新を止めています）' : '更新を再開しました';
+  if (!paused) tick();
+};
 
+showEmpty('チームを探しています…');
 tick();
 setInterval(tick, 3000);
 </script>
