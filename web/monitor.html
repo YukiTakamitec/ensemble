@@ -132,6 +132,8 @@
   .sysmsg .time { display: block; font-size: 9px; opacity: .7; margin-top: 3px; }
   .stage.hide-sys { grid-template-columns: 1fr 0 1fr; }
   .stage.hide-sys .col.sys { display: none; }
+  .stage.one-agent { grid-template-columns: 1fr minmax(160px, 0.45fr); }
+  .stage.one-agent .col.right { display: none; }
 
   .empty { margin: auto; color: var(--muted); text-align: center; font-size: 13px; line-height: 1.8; }
   .empty .spin { font-size: 22px; animation: spin 1.4s linear infinite; display: inline-block; }
@@ -239,9 +241,11 @@ function classifyAgents(t) {
   leftAgent = real[0] || { name: 'agent-1', role: '', program: '' };
   rightAgent = real[1] || { name: 'agent-2', role: '', program: '' };
   $('leftName').textContent = leftAgent.name;
-  $('rightName').textContent = rightAgent.name;
+  $('rightName').textContent = realCount > 1 ? rightAgent.name : '';
   $('leftRole').textContent = realCount > 0 ? whoLine(leftAgent) : '';
   $('rightRole').textContent = realCount > 1 ? whoLine(rightAgent) : '';
+  // Hide the right column entirely when there is only one agent (no fake agent-2).
+  $('stage').classList.toggle('one-agent', realCount === 1);
   renderPills(t);
 }
 
@@ -258,7 +262,9 @@ function renderPills(t) {
     const label = teamDone ? '完了' : '';
     return `<span class="apill ${cls}"><span class="ic" style="background:${color}"></span>${esc(a.name)}${label ? ' <span style="opacity:.6;font-weight:400">' + label + '</span>' : ''}</span>`;
   };
-  $('pills').innerHTML = pill(leftAgent, 'codex') + pill(rightAgent, 'claude');
+  let html = pill(leftAgent, 'codex');
+  if (realCount > 1) html += pill(rightAgent, 'claude');
+  $('pills').innerHTML = html;
 }
 
 function setStatus(status) {

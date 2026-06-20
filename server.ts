@@ -14,18 +14,20 @@ import {
 const WEB_DIR = path.join(process.cwd(), 'web')
 
 // Read a web page once and memoize it, so the static routes don't do a synchronous
-// disk read on every request (avoids an event-loop stall vector). [review F5]
-const staticHtmlCache = new Map<string, string>()
+// disk read on every request (avoids an event-loop stall vector). Failures are
+// negative-cached (null) too, so a missing file doesn't re-read on every request. [review F5]
+const staticHtmlCache = new Map<string, string | null>()
 function getStaticHtml(file: string): string | null {
   const cached = staticHtmlCache.get(file)
   if (cached !== undefined) return cached
+  let html: string | null = null
   try {
-    const html = fs.readFileSync(path.join(WEB_DIR, file), 'utf8')
-    staticHtmlCache.set(file, html)
-    return html
+    html = fs.readFileSync(path.join(WEB_DIR, file), 'utf8')
   } catch {
-    return null
+    html = null
   }
+  staticHtmlCache.set(file, html)
+  return html
 }
 
 const PORT = parseInt(process.env.ENSEMBLE_PORT || process.env.ORCHESTRA_PORT || '23000', 10)

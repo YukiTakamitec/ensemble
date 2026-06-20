@@ -170,8 +170,10 @@ export function getMessages(teamId: string, since?: string): EnsembleMessage[] {
 
   if (since) {
     // Inclusive (>=) so messages sharing the cursor timestamp are not lost.
-    // Callers must dedupe by id; the live monitor already does (seen Set).
-    messages = messages.filter(m => m.timestamp && m.timestamp >= since)
+    // Messages without a timestamp are always included (they have no cursor and
+    // would otherwise be dropped forever on incremental polls). Callers must
+    // dedupe by id; the live monitor already does (seen Set).
+    messages = messages.filter(m => !m.timestamp || m.timestamp >= since)
   }
   return messages
 }
